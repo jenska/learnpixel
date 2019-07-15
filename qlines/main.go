@@ -1,5 +1,7 @@
 package main
 
+// update pixel.Line
+
 import (
 	"image/color"
 	"math/rand"
@@ -30,36 +32,23 @@ func randomV(b pixel.Rect) pixel.Vec {
 		rand.Float64()*(b.Max.Y-b.Min.Y)+b.Min.Y)
 }
 
-func NewMline(b pixel.Rect) mline {
-	var result mline
-	result.line[0] = randomV(b)
-	result.line[1] = randomV(b)
-	result.vel[0] = randomV(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
-	result.vel[1] = randomV(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
-	return result
-}
+func moveV(p, v *pixel.Vec) {
+	x, y := p.X, p.Y
+	vx, vy := v.X, v.Y
 
-func (m *mline) move(bounds *pixel.Rect) {
-	for i := 0; i < 2; i++ {
-		x, y := m.line[i].X, m.line[i].Y
-		vx, vy := m.vel[i].X, m.vel[i].Y
-
-		if x+vx < 0 || x+vx > wwidth {
-			vx = -vx
-		}
-		if y+vy < 0 || y+vy > wheight {
-			vy = -vy
-		}
-
-		m.line[i].X, m.line[i].Y = x+vx, y+vy
-		m.vel[i].X, m.vel[i].Y = vx, vy
+	if x+vx < 0 || x+vx > wwidth {
+		vx = -vx
 	}
+	if y+vy < 0 || y+vy > wheight {
+		vy = -vy
+	}
+
+	p.X, p.Y = x+vx, y+vy
+	v.X, v.Y = vx, vy
 }
 
 func run() {
 	bounds := pixel.R(0, 0, wwidth, wheight)
-	var mlines [qlines]mline
-
 	cfg := pixelgl.WindowConfig{
 		Title:  "QLines Demo",
 		Bounds: bounds,
@@ -73,13 +62,20 @@ func run() {
 	imd := imdraw.New(nil)
 	imd.Color = pixel.RGB(1, 0, 0)
 
-	mlines[0] = NewMline(bounds)
+	var mlines [qlines]mline
+	top := &mlines[0]
+	top.line[0] = randomV(bounds)
+	top.line[1] = randomV(bounds)
+	top.vel[0] = randomV(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
+	top.vel[1] = randomV(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
 	for !win.Closed() {
 		win.SetClosed(win.JustPressed(pixelgl.KeyEscape))
 
 		imd.Clear()
+
 		copy(mlines[1:], mlines[0:qlines-2])
-		mlines[0].move(&bounds)
+		moveV(&top.line[0], &top.vel[0])
+		moveV(&top.line[1], &top.vel[1])
 		for _, m := range mlines {
 			imd.Push(m.line[0])
 			imd.Push(m.line[1])
