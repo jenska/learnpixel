@@ -14,8 +14,12 @@ import (
 const (
 	start   = 10 // initial number of asteroids
 	explode = 3  // exploded asteroid splits into parts
-	width   = 1024
-	height  = 768
+
+	width  = 1024
+	height = 768
+
+	rot1 = 1.0 * math.Pi / 180
+	rot2 = 2.0 * math.Pi / 180
 )
 
 type (
@@ -25,47 +29,42 @@ type (
 		velocity pixel.Vec
 
 		vertices *[]pixel.Vec
-		angle    int
+		angle    float64
 		color    color.Color
+	}
+
+	spaceship struct {
+		center   pixel.Vec
+		velocity pixel.Vec
+		vertices []pixel.Vec
+
+		angle2 float64
+		color  color.Color
 	}
 )
 
 var (
-	bounds    pixel.Rect
-	asteroids []*asteroid
-	vertices  [][]pixel.Vec
+	bounds pixel.Rect
+
+	asteroids []*asteroid   // asteroid field
+	vertices  [][]pixel.Vec // pre-calculated vertices for asteroids
+
+	ship spaceship
 )
 
 func (a *asteroid) update(d float64) {
-	// clip
-	switch {
-	case a.center.X+a.radius < 0:
-		a.center.X = width - a.radius
-	case a.center.X-a.radius > width:
-		a.center.X = 0
-	case a.center.Y+a.radius < 0:
-		a.center.Y = height - a.radius
-	case a.center.Y-a.radius > height:
-		a.center.Y = 0
-	}
-	// move
+	clip(&a.center, a.radius)
 	a.center = a.center.Add(a.velocity.Scaled(1.0 + d))
 }
 
 func (a *asteroid) draw(imd *imdraw.IMDraw) {
 	imd.Color = a.color
-	imd.SetMatrix(pixel.IM.Rotated(pixel.ZV, float64(a.angle)*math.Pi/180.0).Moved(a.center))
+	imd.SetMatrix(pixel.IM.Rotated(pixel.ZV, a.angle).Moved(a.center))
 	for _, v := range *a.vertices {
 		imd.Push(v.Scaled(a.radius))
-		a.angle = (a.angle + 1) % 360
+		a.angle += rot1
 	}
 	imd.Polygon(1)
-}
-
-func randomVec(b pixel.Rect) pixel.Vec {
-	return pixel.V(
-		rand.Float64()*(b.Max.X-b.Min.X)+b.Min.X,
-		rand.Float64()*(b.Max.Y-b.Min.Y)+b.Min.Y)
 }
 
 func newAsteroid(numVertices int) *asteroid {
@@ -78,6 +77,39 @@ func newAsteroid(numVertices int) *asteroid {
 	result.color = pixel.RGB(0, 1, 0)
 
 	return &result
+}
+
+func (s *spaceship) update(d float64) {
+	clip(&s.center, 20)
+	s.center = s.center.Add(s.velocity.Scaled(1.0 + d))
+}
+
+func (s *spaceship) draw(imd *imdraw.IMDraw) {
+	imd.Color = s.color
+	imd.SetMatrix(pixel.IM.Rotated(pixel.ZV, s.angle2).Moved(s.center))
+	for _, v := range s.vertices {
+		imd.Push(v)
+	}
+	imd.Polygon(1)
+}
+
+func randomVec(b pixel.Rect) pixel.Vec {
+	return pixel.V(
+		rand.Float64()*(b.Max.X-b.Min.X)+b.Min.X,
+		rand.Float64()*(b.Max.Y-b.Min.Y)+b.Min.Y)
+}
+
+func clip(v *pixel.Vec, d float64) {
+	switch {
+	case v.X+d < 0:
+		v.X = width - d
+	case v.X-d > width:
+		v.X = 0
+	case v.Y+d < 0:
+		v.Y = height - d
+	case v.Y-d > height:
+		v.Y = 0
+	}
 }
 
 func run() {
@@ -96,6 +128,7 @@ func run() {
 	last := time.Now()
 	for !win.Closed() {
 		win.SetClosed(win.JustPressed(pixelgl.KeyEscape) || win.JustPressed(pixelgl.KeyQ))
+
 		d := time.Since(last).Seconds()
 		last = time.Now()
 
@@ -104,6 +137,18 @@ func run() {
 			a.update(d)
 			a.draw(imd)
 		}
+		switch {
+		case win.Pressed(pixelgl.KeyLeft):
+			ship.angle2 += rot2
+		case win.Pressed(pixelgl.KeyRight):
+			ship.angle2 -= rot2
+		case win.Pressed(pixelgl.KeyUp):
+			ship.velocity = ship.velocity.Add(pixel.V(0, 0.05).Rotated(ship.angle2))
+		case win.Pressed(pixelgl.KeyDown):
+			ship.velocity = ship.velocity.Sub(pixel.V(0, 0.05).Rotated(ship.angle2))
+		}
+		ship.update(d)
+		ship.draw(imd)
 
 		win.Clear(color.Black)
 		imd.Draw(win)
@@ -129,7 +174,9 @@ func init() {
 	for i := range asteroids {
 		asteroids[i] = newAsteroid(rand.Intn(5) + 5)
 	}
-
+	ship.color = pixel.RGB(1, 1, 1)
+	ship.center = bounds.Center()
+	ship.vertices = []pixel.Vec{{-10, -10}, {0, 10}, {10, -10}}
 }
 
 func main() {
