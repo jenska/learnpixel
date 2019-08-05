@@ -1,7 +1,5 @@
 package main
 
-// update pixel.Line
-
 import (
 	"image/color"
 	"math/rand"
@@ -13,26 +11,26 @@ import (
 )
 
 const (
-	qlines  = 100
+	nlines  = 100
 	vel     = 20
 	wheight = 768
 	wwidth  = 1024
 )
 
 type (
-	mline struct {
+	qline struct {
 		line [2]pixel.Vec
 		vel  [2]pixel.Vec
 	}
 )
 
-func randomV(b pixel.Rect) pixel.Vec {
+func randomVec(b pixel.Rect) pixel.Vec {
 	return pixel.V(
 		rand.Float64()*(b.Max.X-b.Min.X)+b.Min.X,
 		rand.Float64()*(b.Max.Y-b.Min.Y)+b.Min.Y)
 }
 
-func moveV(p, v *pixel.Vec) {
+func moveVec(p, v *pixel.Vec) {
 	x, y := p.X, p.Y
 	vx, vy := v.X, v.Y
 
@@ -62,21 +60,21 @@ func run() {
 	imd := imdraw.New(nil)
 	imd.Color = pixel.RGB(1, 0, 0)
 
-	var mlines [qlines]mline
-	top := &mlines[0]
-	top.line[0] = randomV(bounds)
-	top.line[1] = randomV(bounds)
-	top.vel[0] = randomV(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
-	top.vel[1] = randomV(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
+	var qlines [nlines]qline
+	top := &qlines[0]
+	top.line[0] = randomVec(bounds)
+	top.line[1] = randomVec(bounds)
+	top.vel[0] = randomVec(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
+	top.vel[1] = randomVec(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
 	for !win.Closed() {
 		win.SetClosed(win.JustPressed(pixelgl.KeyEscape))
 
 		imd.Clear()
 
-		copy(mlines[1:], mlines[0:qlines-2])
-		moveV(&top.line[0], &top.vel[0])
-		moveV(&top.line[1], &top.vel[1])
-		for _, m := range mlines {
+		copy(qlines[1:], qlines[0:nlines-2])
+		moveVec(&top.line[0], &top.vel[0])
+		moveVec(&top.line[1], &top.vel[1])
+		for _, m := range qlines {
 			imd.Push(m.line[0])
 			imd.Push(m.line[1])
 			imd.Line(1)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 	"math/rand"
@@ -41,6 +42,12 @@ type (
 		angle2 float64
 		color  color.Color
 	}
+
+	laser struct {
+		position pixel.Vec
+		velocity pixel.Vec
+		color    color.Color
+	}
 )
 
 var (
@@ -49,7 +56,10 @@ var (
 	asteroids []*asteroid   // asteroid field
 	vertices  [][]pixel.Vec // pre-calculated vertices for asteroids
 
-	ship spaceship
+	ship  spaceship
+	delta = pixel.V(0, 0.05) // delta for velocity
+
+	shoots []laser // buffer for laser shoots
 )
 
 func (a *asteroid) update(d float64) {
@@ -93,6 +103,19 @@ func (s *spaceship) draw(imd *imdraw.IMDraw) {
 	imd.Polygon(1)
 }
 
+func (l *laser) update(d float64) {
+	l.position = l.position.Add(l.velocity.Scaled(1.0 + d))
+}
+
+func (l *laser) draw(imd *imdraw.IMDraw) {
+	imd.Color = l.color
+	imd.SetMatrix(pixel.IM)
+	imd.Push(l.position)
+	imd.Push(l.position.Add(l.velocity))
+	fmt.Println(l.position, len(shoots))
+	imd.Polygon(1)
+}
+
 func randomVec(b pixel.Rect) pixel.Vec {
 	return pixel.V(
 		rand.Float64()*(b.Max.X-b.Min.X)+b.Min.X,
@@ -112,6 +135,15 @@ func clip(v *pixel.Vec, d float64) {
 	}
 }
 
+func shoot() {
+	var l = laser{
+		position: ship.center,
+		velocity: ship.velocity.Add(delta),
+		color:    pixel.RGB(1, 1, 1),
+	}
+	shoots = append(shoots, l)
+}
+
 func run() {
 	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
 		Title:  "Asteroids",
@@ -128,29 +160,39 @@ func run() {
 	last := time.Now()
 	for !win.Closed() {
 		win.SetClosed(win.JustPressed(pixelgl.KeyEscape) || win.JustPressed(pixelgl.KeyQ))
+		win.Clear(color.Black)
 
 		d := time.Since(last).Seconds()
 		last = time.Now()
 
-		imd.Clear()
-		for _, a := range asteroids {
-			a.update(d)
-			a.draw(imd)
-		}
 		switch {
 		case win.Pressed(pixelgl.KeyLeft):
 			ship.angle2 += rot2
 		case win.Pressed(pixelgl.KeyRight):
 			ship.angle2 -= rot2
 		case win.Pressed(pixelgl.KeyUp):
-			ship.velocity = ship.velocity.Add(pixel.V(0, 0.05).Rotated(ship.angle2))
+			ship.velocity = ship.velocity.Add(delta.Rotated(ship.angle2))
 		case win.Pressed(pixelgl.KeyDown):
-			ship.velocity = ship.velocity.Sub(pixel.V(0, 0.05).Rotated(ship.angle2))
+			ship.velocity = ship.velocity.Sub(delta.Rotated(ship.angle2))
+		case win.Pressed(pixelgl.KeySpace):
+			shoot()
 		}
+
+		imd.Clear()
+
 		ship.update(d)
 		ship.draw(imd)
 
-		win.Clear(color.Black)
+		for _, a := range asteroids {
+			a.update(d)
+			a.draw(imd)
+		}
+
+		for _, s := range shoots {
+			s.update(d)
+			s.draw(imd)
+		}
+
 		imd.Draw(win)
 		win.Update()
 	}
@@ -176,7 +218,7 @@ func init() {
 	}
 	ship.color = pixel.RGB(1, 1, 1)
 	ship.center = bounds.Center()
-	ship.vertices = []pixel.Vec{{-10, -10}, {0, 10}, {10, -10}}
+	ship.vertices = []pixel.Vec{{-10, -10}, {0, 10}, {10, -10}, {0, 0}}
 }
 
 func main() {
