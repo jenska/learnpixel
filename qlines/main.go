@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	nlines  = 100
-	vel     = 20
-	wheight = 768
-	wwidth  = 1024
+	nlines    = 100
+	velocity  = 15
+	winHeight = 768
+	winWidth  = 1024
 )
 
 type (
@@ -34,10 +34,10 @@ func moveVec(p, v *pixel.Vec) {
 	x, y := p.X, p.Y
 	vx, vy := v.X, v.Y
 
-	if x+vx < 0 || x+vx > wwidth {
+	if x+vx < 0 || x+vx > winWidth {
 		vx = -vx
 	}
-	if y+vy < 0 || y+vy > wheight {
+	if y+vy < 0 || y+vy > winHeight {
 		vy = -vy
 	}
 
@@ -46,7 +46,8 @@ func moveVec(p, v *pixel.Vec) {
 }
 
 func run() {
-	bounds := pixel.R(0, 0, wwidth, wheight)
+	bounds := pixel.R(0, 0, winWidth, winHeight)
+	vel := pixel.R(-velocity, -velocity, velocity, velocity)
 	cfg := pixelgl.WindowConfig{
 		Title:  "QLines Demo",
 		Bounds: bounds,
@@ -64,8 +65,8 @@ func run() {
 	top := &qlines[0]
 	top.line[0] = randomVec(bounds)
 	top.line[1] = randomVec(bounds)
-	top.vel[0] = randomVec(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
-	top.vel[1] = randomVec(pixel.R(-vel/2, -vel/2, vel/2, vel/2))
+	top.vel[0] = randomVec(vel)
+	top.vel[1] = randomVec(vel)
 	for !win.Closed() {
 		win.SetClosed(win.JustPressed(pixelgl.KeyEscape))
 
