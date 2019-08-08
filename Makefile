@@ -1,22 +1,47 @@
+# Go related variables.
 GOBASE := $(shell pwd)
+GOPATH := $(GOBASE)/vendor:$(GOBASE)/cmd:$(GOBASE)/pkg
 GOBIN := $(GOBASE)/bin
-GOFILES := $(wildcard *.go)
+GOFILES := $(shell go list ./...)
 
-GOQLINES := qlines
-GOASTEROIDS := asteroids
+# Make is verbose in Linux. Make it silent.
+MAKEFLAGS += --silent
 
-.PHONY: qlines asteroids
-qlines_build:
-	cd $(GOQLINES) && go build -o $(GOBIN)/$(GOQLINES) main.go && cd $(GOBASE)
-asteroids_build:
-	cd $(GOASTEROIDS) && go build -o $(GOBIN)/$(GOASTEROIDS) main.go && cd $(GOBASE)	
+## build: get missing dependencies and build all
+build: go-mod-tidy go-install
 
-qlines: qlines_build
-	$(GOBIN)/$(GOQLINES)
+## test: run test cases
+test: go-test
 
-asteroids: asteroids_build
-	$(GOBIN)/$(GOASTEROIDS)
-	
-build: qlines_build asteroids_build
+## exec: run given command, wrapped with custom GOPATH. e.g; make exec run="go test ./..."
+exec:
+	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) $(run)
 
-all: build
+## clean: clean build files. Runs `go clean` internally.
+clean:
+	@-rm $(GOBIN) 2> /dev/null
+	@-$(MAKE) go-clean
+
+.PHONY: help
+help: Makefile
+	@echo
+	@echo
+	@echo " Choose a command run in "$(PROJECTNAME)":"
+	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
+	@echo
+
+go-install:
+	@echo "  >  Building binaries..."
+	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go install $(GOFILES)
+
+go-mod-tidy:
+	@echo "  >  Checking if there is any missing dependencies..."
+	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go mod tidy
+
+go-test:
+	@echo "  >  Run test cases..."
+	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go test $(GOFILES)
+
+go-clean:
+	@echo "  >  Cleaning build cache"
+	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go clean $(GOFILES)
