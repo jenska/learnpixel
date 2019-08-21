@@ -8,8 +8,8 @@ import (
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
-
 	"github.com/jenska/learnpixel/pkg/asteroids"
+	"github.com/jenska/learnpixel/pkg/core"
 )
 
 const (
@@ -23,57 +23,57 @@ const (
 func run() {
 	bounds := pixel.R(0, 0, winWidth, winHeight)
 	win, err := pixelgl.NewWindow(pixelgl.WindowConfig{
-		Title:  "Asteroids",
-		Bounds: bounds,
-		VSync:  true,
+		Title:     "Asteroids",
+		Bounds:    bounds,
+		Resizable: true,
+		VSync:     true,
 	})
 	if err != nil {
 		panic(err)
 	}
+	objects := core.NewSet()
 
-	aList := make([]*asteroids.Asteroid, initialAsteroids)
-	for i := range aList {
-		aList[i] = asteroids.NewAsteroid(rand.Intn(5)+5, &bounds)
+	for i := 0; i < initialAsteroids; i++ {
+		objects.Put(asteroids.NewAsteroid(&bounds))
 	}
 
-	ship := asteroids.NewSpaceship(&bounds)
+	score := asteroids.NewScore(&bounds)
+	objects.Put(&score)
+
+	ship := asteroids.NewSpaceship(&bounds,
+		func() bool { return win.Pressed(pixelgl.KeyLeft) || win.Pressed(pixelgl.KeyA) },
+		func() bool { return win.Pressed(pixelgl.KeyRight) || win.Pressed(pixelgl.KeyD) },
+		func() bool { return win.Pressed(pixelgl.KeyUp) || win.Pressed(pixelgl.KeyW) },
+		func() bool { return win.Pressed(pixelgl.KeyDown) || win.Pressed(pixelgl.KeyS) },
+		func() bool { return win.JustPressed(pixelgl.KeySpace) },
+	)
+	objects.Put(&ship)
+
 	imd := imdraw.New(nil)
 	imd.Precision = 7
-
+	paused := false
 	last := time.Now()
 	for !win.Closed() {
 		win.SetClosed(win.JustPressed(pixelgl.KeyEscape) || win.JustPressed(pixelgl.KeyQ))
+		if win.JustPressed(pixelgl.KeyP) {
+			paused = !paused
+		}
 		win.Clear(color.Black)
+		if !paused {
+			d := time.Since(last).Seconds()
+			last = time.Now()
+			imd.Clear()
 
-		d := time.Since(last).Seconds()
-		last = time.Now()
+			objects.Do(
+				func(object interface{}) {
+					if element, ok := object.(asteroids.Drawable); ok {
+						element.Update(d)
+						element.Draw(imd)
+					}
+				})
 
-		switch {
-		case win.Pressed(pixelgl.KeyLeft):
-			ship.RotateLeft()
-		case win.Pressed(pixelgl.KeyRight):
-			ship.RotateRight()
-		case win.Pressed(pixelgl.KeyUp):
-			ship.Forward()
-		case win.Pressed(pixelgl.KeyDown):
-			ship.Backward()
-		case win.JustPressed(pixelgl.KeySpace):
-			// shoot
-		case win.JustPressed(pixelgl.KeyP):
-			// pause
+			imd.Draw(win)
 		}
-
-		imd.Clear()
-
-		for _, a := range aList {
-			a.Update(d, &bounds)
-			a.Draw(imd)
-		}
-
-		ship.Update(d, &bounds)
-		ship.Draw(imd)
-
-		imd.Draw(win)
 		win.Update()
 	}
 }
